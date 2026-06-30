@@ -1064,11 +1064,9 @@ function WorkoutScreen({
   const timerGlow = restContext === 'exercise'
     ? 'shadow-[0_0_45px_rgba(56,189,248,0.28)]'
     : 'shadow-[0_0_45px_rgba(96,165,250,0.28)]';
-  const primaryButtonClass =
-    'rounded-2xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98]';
-  const secondaryButtonClass =
-    'rounded-2xl border py-4 text-base font-semibold shadow-lg transition-all active:scale-[0.98]';
   const isLandscapeExerciseLayout = Boolean(isLandscape && selectedExercise);
+  const primaryButtonClass = `${isLandscapeExerciseLayout ? 'rounded-xl py-3 text-sm' : 'rounded-2xl py-4 text-base'} font-semibold text-white shadow-lg transition-all active:scale-[0.98]`;
+  const secondaryButtonClass = `${isLandscapeExerciseLayout ? 'rounded-xl py-3 text-sm' : 'rounded-2xl border py-4 text-base'} border font-semibold shadow-lg transition-all active:scale-[0.98]`;
   const screenContentPaddingClass = isLandscapeExerciseLayout ? 'pb-4' : showTimerPanel ? 'pb-[34rem]' : 'pb-40';
   const selectedExerciseBodyClass = showTimerPanel
     ? isLandscapeExerciseLayout
@@ -1081,7 +1079,7 @@ function WorkoutScreen({
   const showFinishWorkoutButton = allCompleted && !selectedExercise && !isWorkoutFinishing;
   const isExerciseSelectionLocked = isSetActive || isRestActive || isRestAlarmActive || Boolean(exerciseRestReady);
   const timerInnerSize = Math.max(144, Math.round(timerLayout.size * 0.61));
-  const landscapeTimerSize = Math.max(208, Math.min(252, timerLayout.size - 28));
+  const landscapeTimerSize = Math.max(168, Math.min(212, timerLayout.size - 68));
   const landscapeTimerInnerSize = Math.max(132, Math.round(landscapeTimerSize * 0.61));
 
   useEffect(() => {
@@ -1256,6 +1254,9 @@ function WorkoutScreen({
     if (showRestTimerPanel) {
       const outerSize = landscape ? landscapeTimerSize : timerLayout.size;
       const innerSize = landscape ? landscapeTimerInnerSize : timerInnerSize;
+      const labelClass = landscape ? 'text-[10px] tracking-[0.24em]' : 'text-[11px] tracking-[0.28em]';
+      const valueClass = landscape ? 'mt-2 text-5xl' : 'mt-3 text-6xl';
+      const hintClass = landscape ? 'mt-2 text-[11px]' : 'mt-3 text-xs';
 
       return (
         <button
@@ -1298,17 +1299,17 @@ function WorkoutScreen({
             />
           </svg>
           <div
-            className="flex flex-col items-center justify-center rounded-full border border-white/10 bg-[#071121]/95 px-5 text-center shadow-inner shadow-black/50 transition-[width,height] duration-500 ease-out"
+            className={`flex flex-col items-center justify-center rounded-full border border-white/10 bg-[#071121]/95 text-center shadow-inner shadow-black/50 transition-[width,height] duration-500 ease-out ${landscape ? 'px-3' : 'px-5'}`}
             style={{ width: `${innerSize}px`, height: `${innerSize}px` }}
           >
-            <span className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${restContext === 'exercise' ? 'text-cyan-300' : 'text-blue-300'}`}>
+            <span className={`${labelClass} font-semibold uppercase ${restContext === 'exercise' ? 'text-cyan-300' : 'text-blue-300'}`}>
               {isRestAlarmActive ? 'Таймер окончен' : timerLabel}
             </span>
-            <span className="mt-3 text-6xl font-bold text-white tabular-nums">
+            <span className={`${valueClass} font-bold text-white tabular-nums`}>
               {formatTimer(restTimer)}
             </span>
             {isRestAlarmActive && (
-              <span className="mt-3 text-xs font-medium text-blue-100/80">
+              <span className={`${hintClass} font-medium text-blue-100/80`}>
                 Нажми на таймер или кнопку стоп
               </span>
             )}
@@ -1319,19 +1320,19 @@ function WorkoutScreen({
 
     return (
       <div
-        className="rounded-[2rem] border border-orange-400/20 bg-slate-900/75 px-6 py-5 text-center shadow-2xl shadow-orange-500/10 backdrop-blur-xl transition-[width] duration-500 ease-out"
+        className={`border border-orange-400/20 bg-slate-900/75 text-center shadow-2xl shadow-orange-500/10 backdrop-blur-xl transition-[width] duration-500 ease-out ${landscape ? 'rounded-[1.5rem] px-4 py-4' : 'rounded-[2rem] px-6 py-5'}`}
         style={{ width: landscape ? '100%' : `${Math.min(384, Math.max(280, timerLayout.size + 48))}px` }}
       >
-        <div className="text-xs font-semibold uppercase tracking-[0.32em] text-orange-300">
+        <div className={`${landscape ? 'text-[10px] tracking-[0.24em]' : 'text-xs tracking-[0.32em]'} font-semibold uppercase text-orange-300`}>
           Подход
         </div>
-        <div className="mt-3 text-xl font-semibold text-white">
+        <div className={`${landscape ? 'mt-2 text-lg' : 'mt-3 text-xl'} font-semibold text-white`}>
           {currentSetIndex !== null ? `${currentSetIndex + 1}-ый подход` : selectedExercise?.name}
         </div>
-        <div className="mt-5 text-6xl font-bold text-white tabular-nums">
+        <div className={`${landscape ? 'mt-3 text-5xl' : 'mt-5 text-6xl'} font-bold text-white tabular-nums`}>
           {formatTimer(exerciseTimer)}
         </div>
-        <div className="mt-3 text-sm text-orange-100/70">
+        <div className={`${landscape ? 'mt-2 text-xs' : 'mt-3 text-sm'} text-orange-100/70`}>
           Прошло с начала подхода
         </div>
       </div>
@@ -1356,10 +1357,10 @@ function WorkoutScreen({
 
     if (isSetActive) {
       return (
-        <div className="flex items-stretch gap-3">
+        <div className={`flex items-stretch ${isLandscapeExerciseLayout ? 'gap-2' : 'gap-3'}`}>
           <button
             onClick={() => selectedExercise && onCancelSet(selectedExercise, currentSetIndex)}
-            className={`${secondaryButtonClass} w-[28%] min-w-[88px] max-w-[112px] border-red-500/30 bg-red-500/20 px-3 text-red-300 hover:bg-red-500/30`}
+            className={`${secondaryButtonClass} ${isLandscapeExerciseLayout ? 'w-[30%] min-w-[74px] max-w-[94px] px-2.5' : 'w-[28%] min-w-[88px] max-w-[112px] px-3'} border-red-500/30 bg-red-500/20 text-red-300 hover:bg-red-500/30`}
           >
             Отмена
           </button>
@@ -1392,16 +1393,16 @@ function WorkoutScreen({
       className="screen-fade-in h-screen overflow-hidden flex flex-col transition-all duration-500"
       style={{ ...swipeBackStyle, touchAction: 'pan-y' }}
     >
-      <div ref={scrollContainerRef} className={`p-4 flex-1 ${isLandscapeExerciseLayout ? 'overflow-hidden' : 'overflow-y-auto'} ${screenContentPaddingClass}`}>
+      <div ref={scrollContainerRef} className={`${isLandscapeExerciseLayout ? 'p-3' : 'p-4'} flex-1 ${isLandscapeExerciseLayout ? 'overflow-hidden' : 'overflow-y-auto'} ${screenContentPaddingClass}`}>
         <div className={`mx-auto ${isLandscapeExerciseLayout ? 'flex h-full w-full max-w-6xl flex-col' : 'max-w-md'}`}>
-          <div className="content-rise-in flex items-center justify-between mb-6">
+          <div className={`content-rise-in flex items-center justify-between ${isLandscapeExerciseLayout ? 'mb-4' : 'mb-6'}`}>
             <button
               onClick={onBack}
               className="text-gray-400 hover:text-white p-2 transition-colors"
             >
               <ArrowLeft size={24} />
             </button>
-            <h1 className="text-2xl font-bold text-white">{workout.name}</h1>
+            <h1 className={`${isLandscapeExerciseLayout ? 'text-xl' : 'text-2xl'} font-bold text-white`}>{workout.name}</h1>
             <div className="w-10"></div>
           </div>
 
@@ -1411,7 +1412,7 @@ function WorkoutScreen({
             </div>
           )}
 
-          <div ref={exercisesListRef} className={isLandscapeExerciseLayout ? 'flex-1 min-h-0 space-y-4' : 'space-y-4'}>
+          <div ref={exercisesListRef} className={isLandscapeExerciseLayout ? 'flex-1 min-h-0 space-y-3' : 'space-y-4'}>
             {exercises.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <p className="text-lg">Нет упражнений</p>
@@ -1443,7 +1444,7 @@ function WorkoutScreen({
                     style={{ animationDelay: `${110 + exerciseIndex * 70}ms` }}
                   >
                     <div
-                      className={`p-4 flex items-center justify-between gap-3 ${canOpenExercise ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                      className={`${isLandscapeExerciseLayout ? 'p-3' : 'p-4'} flex items-center justify-between gap-3 ${canOpenExercise ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                       onClick={() => {
                         if (!canOpenExercise) {
                           return;
@@ -1456,14 +1457,14 @@ function WorkoutScreen({
                         {allSetsCompleted && <Check size={24} className="text-green-400" />}
                         <div className={`text-left flex-1 min-w-0 ${canOpenExercise ? '' : 'opacity-60'}`}>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-xl font-semibold text-white">{exercise.name}</h2>
+                            <h2 className={`${isLandscapeExerciseLayout ? 'text-lg' : 'text-xl'} font-semibold text-white`}>{exercise.name}</h2>
                             {isActiveExercise && (
-                              <span className="rounded-full border border-cyan-300/35 bg-cyan-400/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,0.18)]">
+                              <span className={`rounded-full border border-cyan-300/35 bg-cyan-400/15 font-semibold uppercase text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,0.18)] ${isLandscapeExerciseLayout ? 'px-2 py-0.5 text-[9px] tracking-[0.16em]' : 'px-2.5 py-1 text-[10px] tracking-[0.2em]'}`}>
                                 В процессе
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-400">
+                          <p className={`${isLandscapeExerciseLayout ? 'text-xs' : 'text-sm'} text-gray-400`}>
                             {exercise.sets.filter(s => s.completed).length}/{exercise.sets.length} подходов
                           </p>
                         </div>
@@ -1483,9 +1484,9 @@ function WorkoutScreen({
                     </div>
 
                     {isSelected && (
-                      <div className={`content-rise-in px-4 pb-4 transition-all duration-500 ${isLandscapeExerciseLayout ? 'flex-1 min-h-0' : ''}`} style={{ animationDelay: '120ms' }}>
-                        <div className={isLandscapeExerciseLayout ? 'grid h-full min-h-0 grid-cols-[minmax(0,1fr)_18rem] items-stretch gap-4' : ''}>
-                          <div className={`hide-scrollbar space-y-3 overflow-y-auto pr-1 overscroll-y-contain transition-all duration-500 ${selectedExerciseBodyClass}`}>
+                      <div className={`content-rise-in transition-all duration-500 ${isLandscapeExerciseLayout ? 'flex-1 min-h-0 px-3 pb-3' : 'px-4 pb-4'}`} style={{ animationDelay: '120ms' }}>
+                        <div className={isLandscapeExerciseLayout ? 'grid h-full min-h-0 grid-cols-[minmax(0,1fr)_16rem] items-stretch gap-3' : ''}>
+                          <div className={`hide-scrollbar ${isLandscapeExerciseLayout ? 'space-y-2.5' : 'space-y-3'} overflow-y-auto pr-1 overscroll-y-contain transition-all duration-500 ${selectedExerciseBodyClass}`}>
                             {exercise.sets.map((set, index) => {
                             const isCurrentSet = currentSetIndex === index;
                             const isSetComplete = set.completed;
@@ -1493,7 +1494,7 @@ function WorkoutScreen({
                             return (
                               <div
                                 key={index}
-                                className={`content-rise-in p-4 rounded-xl border-2 transition-all ${
+                                className={`content-rise-in ${isLandscapeExerciseLayout ? 'p-3' : 'p-4'} rounded-xl border-2 transition-all ${
                                   isSetComplete
                                     ? 'bg-green-500/20 border-green-500/50'
                                     : isCurrentSet
@@ -1505,10 +1506,10 @@ function WorkoutScreen({
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <div className="text-base font-semibold text-white">
+                                      <div className={`${isLandscapeExerciseLayout ? 'text-sm' : 'text-base'} font-semibold text-white`}>
                                         {index + 1}-ый Подход
                                       </div>
-                                      <div className="ml-2 flex flex-wrap gap-2">
+                                      <div className={`${isLandscapeExerciseLayout ? 'ml-1 flex gap-1.5' : 'ml-2 flex flex-wrap gap-2'}`}>
                                         {[
                                           { field: 'reps', label: 'Повторения', suffix: 'раз', value: set.reps },
                                           { field: 'weight', label: 'Вес', suffix: 'кг', value: set.weight },
@@ -1519,9 +1520,9 @@ function WorkoutScreen({
                                           return (
                                             <div
                                               key={`${index}-${item.field}`}
-                                              className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
+                                              className={`${isLandscapeExerciseLayout ? 'rounded-lg px-2.5 py-1.5' : 'rounded-xl px-3 py-2'} border border-white/10 bg-slate-950/40`}
                                             >
-                                              <span className="block text-xs uppercase tracking-wide text-gray-400">{item.label}</span>
+                                              <span className={`block uppercase text-gray-400 ${isLandscapeExerciseLayout ? 'text-[10px] tracking-[0.08em]' : 'text-xs tracking-wide'}`}>{item.label}</span>
                                               {isEditingCurrentField ? (
                                                 <input
                                                   autoFocus
@@ -1539,13 +1540,13 @@ function WorkoutScreen({
                                                       handleCancelEditing(index, item.field, item.value);
                                                     }
                                                   }}
-                                                  className="mt-1 block w-[84px] border-none bg-transparent p-0 text-sm font-semibold text-white outline-none"
+                                                  className={`${isLandscapeExerciseLayout ? 'mt-0.5 w-[68px] text-xs' : 'mt-1 w-[84px] text-sm'} block border-none bg-transparent p-0 font-semibold text-white outline-none`}
                                                 />
                                               ) : (
                                                 <button
                                                   type="button"
                                                   onClick={() => handleStartEditing(index, item.field, item.value)}
-                                                  className="mt-1 block text-left text-sm font-semibold text-white transition-opacity hover:opacity-80"
+                                                  className={`${isLandscapeExerciseLayout ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} block text-left font-semibold text-white transition-opacity hover:opacity-80`}
                                                 >
                                                   {item.value} {item.suffix}
                                                 </button>
@@ -1565,11 +1566,11 @@ function WorkoutScreen({
                           </div>
 
                           {isLandscapeExerciseLayout && (
-                            <div className="flex h-full min-h-0 flex-col gap-4">
+                            <div className="flex h-full min-h-0 flex-col gap-3">
                               <div className="flex flex-1 items-center justify-center">
                                 {renderTimerContent(true)}
                               </div>
-                              <div className="rounded-[2rem] border border-white/10 bg-slate-900/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl">
+                              <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-2.5 shadow-xl shadow-black/20 backdrop-blur-xl">
                                 {renderActionContent()}
                               </div>
                             </div>
