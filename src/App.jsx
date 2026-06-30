@@ -969,6 +969,7 @@ function WorkoutScreen({
 }) {
   const [setValueDrafts, setSetValueDrafts] = useState({});
   const [editingField, setEditingField] = useState(null);
+  const [isLandscape, setIsLandscape] = useState(() => window.innerWidth > window.innerHeight);
   const scrollContainerRef = useRef(null);
   const exercisesListRef = useRef(null);
   const selectedExerciseCardRef = useRef(null);
@@ -1067,9 +1068,12 @@ function WorkoutScreen({
     'rounded-2xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98]';
   const secondaryButtonClass =
     'rounded-2xl border py-4 text-base font-semibold shadow-lg transition-all active:scale-[0.98]';
-  const screenContentPaddingClass = showTimerPanel ? 'pb-[34rem]' : 'pb-40';
+  const isLandscapeExerciseLayout = Boolean(isLandscape && selectedExercise);
+  const screenContentPaddingClass = isLandscapeExerciseLayout ? 'pb-6' : showTimerPanel ? 'pb-[34rem]' : 'pb-40';
   const selectedExerciseBodyClass = showTimerPanel
-    ? 'max-h-[320px]'
+    ? isLandscapeExerciseLayout
+      ? 'max-h-[calc(100vh-10rem)]'
+      : 'max-h-[320px]'
     : 'max-h-[calc(100vh-14rem)]';
   const timerPanelClass = showTimerPanel
     ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
@@ -1077,6 +1081,19 @@ function WorkoutScreen({
   const showFinishWorkoutButton = allCompleted && !selectedExercise && !isWorkoutFinishing;
   const isExerciseSelectionLocked = isSetActive || isRestActive || isRestAlarmActive || Boolean(exerciseRestReady);
   const timerInnerSize = Math.max(144, Math.round(timerLayout.size * 0.61));
+  const landscapeTimerSize = Math.max(208, Math.min(252, timerLayout.size - 28));
+  const landscapeTimerInnerSize = Math.max(132, Math.round(landscapeTimerSize * 0.61));
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!selectedExercise) {
@@ -1231,6 +1248,144 @@ function WorkoutScreen({
     }
   };
 
+  const renderTimerContent = (landscape = false) => {
+    if (!showTimerPanel) {
+      return null;
+    }
+
+    if (showRestTimerPanel) {
+      const outerSize = landscape ? landscapeTimerSize : timerLayout.size;
+      const innerSize = landscape ? landscapeTimerInnerSize : timerInnerSize;
+
+      return (
+        <button
+          type="button"
+          onClick={isRestAlarmActive ? onStopRestAlarm : undefined}
+          className={`relative flex items-center justify-center rounded-full overflow-hidden transition-[width,height] duration-500 ease-out ${timerGlow} ${isRestAlarmActive ? 'cursor-pointer animate-pulse' : ''}`}
+          style={{ width: `${outerSize}px`, height: `${outerSize}px` }}
+        >
+          <svg
+            className="absolute inset-0 h-full w-full -rotate-90 rounded-full"
+            viewBox="0 0 220 220"
+          >
+            <circle
+              cx="110"
+              cy="110"
+              r="96"
+              fill="none"
+              stroke="rgba(148, 163, 184, 0.14)"
+              strokeWidth="14"
+            />
+            <circle
+              cx="110"
+              cy="110"
+              r="96"
+              fill="none"
+              stroke={restContext === 'exercise' ? 'rgba(56, 189, 248, 0.16)' : 'rgba(96, 165, 250, 0.16)'}
+              strokeWidth="24"
+            />
+            <circle
+              cx="110"
+              cy="110"
+              r="96"
+              fill="none"
+              stroke={timerStroke}
+              strokeWidth="16"
+              strokeLinecap="round"
+              strokeDasharray={timerCircumference}
+              strokeDashoffset={timerOffset}
+              className="transition-all duration-1000 ease-linear"
+            />
+          </svg>
+          <div
+            className="flex flex-col items-center justify-center rounded-full border border-white/10 bg-[#071121]/95 px-5 text-center shadow-inner shadow-black/50 transition-[width,height] duration-500 ease-out"
+            style={{ width: `${innerSize}px`, height: `${innerSize}px` }}
+          >
+            <span className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${restContext === 'exercise' ? 'text-cyan-300' : 'text-blue-300'}`}>
+              {isRestAlarmActive ? 'Таймер окончен' : timerLabel}
+            </span>
+            <span className="mt-3 text-6xl font-bold text-white tabular-nums">
+              {formatTimer(restTimer)}
+            </span>
+            {isRestAlarmActive && (
+              <span className="mt-3 text-xs font-medium text-blue-100/80">
+                Нажми на таймер или кнопку стоп
+              </span>
+            )}
+          </div>
+        </button>
+      );
+    }
+
+    return (
+      <div
+        className="rounded-[2rem] border border-orange-400/20 bg-slate-900/75 px-6 py-5 text-center shadow-2xl shadow-orange-500/10 backdrop-blur-xl transition-[width] duration-500 ease-out"
+        style={{ width: landscape ? '100%' : `${Math.min(384, Math.max(280, timerLayout.size + 48))}px` }}
+      >
+        <div className="text-xs font-semibold uppercase tracking-[0.32em] text-orange-300">
+          Подход
+        </div>
+        <div className="mt-3 text-xl font-semibold text-white">
+          {currentSetIndex !== null ? `${currentSetIndex + 1}-ый подход` : selectedExercise?.name}
+        </div>
+        <div className="mt-5 text-6xl font-bold text-white tabular-nums">
+          {formatTimer(exerciseTimer)}
+        </div>
+        <div className="mt-3 text-sm text-orange-100/70">
+          Прошло с начала подхода
+        </div>
+      </div>
+    );
+  };
+
+  const renderActionContent = () => {
+    if (!(currentAction || showFinishWorkoutButton)) {
+      return null;
+    }
+
+    if (showFinishWorkoutButton) {
+      return (
+        <button
+          onClick={onFinishWorkout}
+          className={`${primaryButtonClass} w-full bg-gradient-to-r from-green-500 to-green-600 hover:opacity-90`}
+        >
+          Завершить тренировку
+        </button>
+      );
+    }
+
+    if (isSetActive) {
+      return (
+        <div className="flex items-stretch gap-3">
+          <button
+            onClick={() => selectedExercise && onCancelSet(selectedExercise, currentSetIndex)}
+            className={`${secondaryButtonClass} w-[28%] min-w-[88px] max-w-[112px] border-red-500/30 bg-red-500/20 px-3 text-red-300 hover:bg-red-500/30`}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleAction}
+            className={`${primaryButtonClass} flex-1 bg-gradient-to-r ${currentAction.color} hover:opacity-90`}
+          >
+            {currentAction.label}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        onClick={handleAction}
+        className={`${primaryButtonClass} w-full bg-gradient-to-r ${currentAction.color} hover:opacity-90`}
+      >
+        <span className="flex items-center justify-center gap-2">
+          {currentAction.type === 'stop_alarm' && <Square size={18} />}
+          {currentAction.label}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <div
       {...swipeBackHandlers}
@@ -1238,7 +1393,7 @@ function WorkoutScreen({
       style={{ ...swipeBackStyle, touchAction: 'pan-y' }}
     >
       <div ref={scrollContainerRef} className={`p-4 flex-1 overflow-y-auto ${screenContentPaddingClass}`}>
-        <div className="max-w-md mx-auto">
+        <div className={`mx-auto ${isLandscapeExerciseLayout ? 'w-full max-w-6xl' : 'max-w-md'}`}>
           <div className="content-rise-in flex items-center justify-between mb-6">
             <button
               onClick={onBack}
@@ -1329,83 +1484,96 @@ function WorkoutScreen({
 
                     {isSelected && (
                       <div className="content-rise-in px-4 pb-4 transition-all duration-500" style={{ animationDelay: '120ms' }}>
-                        <div className={`hide-scrollbar space-y-3 overflow-y-auto pr-1 overscroll-y-contain transition-all duration-500 ${selectedExerciseBodyClass}`}>
-                          {exercise.sets.map((set, index) => {
-                          const isCurrentSet = currentSetIndex === index;
-                          const isSetComplete = set.completed;
+                        <div className={isLandscapeExerciseLayout ? 'grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]' : ''}>
+                          <div className={`hide-scrollbar space-y-3 overflow-y-auto pr-1 overscroll-y-contain transition-all duration-500 ${selectedExerciseBodyClass}`}>
+                            {exercise.sets.map((set, index) => {
+                            const isCurrentSet = currentSetIndex === index;
+                            const isSetComplete = set.completed;
 
-                          return (
-                            <div
-                              key={index}
-                              className={`content-rise-in p-4 rounded-xl border-2 transition-all ${
-                                isSetComplete
-                                  ? 'bg-green-500/20 border-green-500/50'
-                                  : isCurrentSet
-                                    ? 'bg-orange-500/20 border-orange-500/50'
-                                    : 'bg-slate-800/50 border-white/10'
-                              }`}
-                              style={{ animationDelay: `${160 + index * 60}ms` }}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <div className="text-base font-semibold text-white">
-                                      {index + 1}-ый Подход
-                                    </div>
-                                    <div className="ml-2 flex flex-wrap gap-2">
-                                      {[
-                                        { field: 'reps', label: 'Повторения', suffix: 'раз', value: set.reps },
-                                        { field: 'weight', label: 'Вес', suffix: 'кг', value: set.weight },
-                                      ].map((item) => {
-                                        const isEditingCurrentField =
-                                          editingField?.index === index && editingField?.field === item.field;
+                            return (
+                              <div
+                                key={index}
+                                className={`content-rise-in p-4 rounded-xl border-2 transition-all ${
+                                  isSetComplete
+                                    ? 'bg-green-500/20 border-green-500/50'
+                                    : isCurrentSet
+                                      ? 'bg-orange-500/20 border-orange-500/50'
+                                      : 'bg-slate-800/50 border-white/10'
+                                }`}
+                                style={{ animationDelay: `${160 + index * 60}ms` }}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <div className="text-base font-semibold text-white">
+                                        {index + 1}-ый Подход
+                                      </div>
+                                      <div className="ml-2 flex flex-wrap gap-2">
+                                        {[
+                                          { field: 'reps', label: 'Повторения', suffix: 'раз', value: set.reps },
+                                          { field: 'weight', label: 'Вес', suffix: 'кг', value: set.weight },
+                                        ].map((item) => {
+                                          const isEditingCurrentField =
+                                            editingField?.index === index && editingField?.field === item.field;
 
-                                        return (
-                                          <div
-                                            key={`${index}-${item.field}`}
-                                            className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
-                                          >
-                                            <span className="block text-xs uppercase tracking-wide text-gray-400">{item.label}</span>
-                                            {isEditingCurrentField ? (
-                                              <input
-                                                autoFocus
-                                                type="text"
-                                                inputMode="numeric"
-                                                value={getDraftValue(index, item.field, item.value)}
-                                                onChange={(event) => handleDraftChange(index, item.field, event.target.value)}
-                                                onBlur={() => handleSaveSetField(exercise, index, item.field, item.value)}
-                                                onKeyDown={(event) => {
-                                                  if (event.key === 'Enter') {
-                                                    event.currentTarget.blur();
-                                                  }
+                                          return (
+                                            <div
+                                              key={`${index}-${item.field}`}
+                                              className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
+                                            >
+                                              <span className="block text-xs uppercase tracking-wide text-gray-400">{item.label}</span>
+                                              {isEditingCurrentField ? (
+                                                <input
+                                                  autoFocus
+                                                  type="text"
+                                                  inputMode="numeric"
+                                                  value={getDraftValue(index, item.field, item.value)}
+                                                  onChange={(event) => handleDraftChange(index, item.field, event.target.value)}
+                                                  onBlur={() => handleSaveSetField(exercise, index, item.field, item.value)}
+                                                  onKeyDown={(event) => {
+                                                    if (event.key === 'Enter') {
+                                                      event.currentTarget.blur();
+                                                    }
 
-                                                  if (event.key === 'Escape') {
-                                                    handleCancelEditing(index, item.field, item.value);
-                                                  }
-                                                }}
-                                                className="mt-1 block w-[84px] border-none bg-transparent p-0 text-sm font-semibold text-white outline-none"
-                                              />
-                                            ) : (
-                                              <button
-                                                type="button"
-                                                onClick={() => handleStartEditing(index, item.field, item.value)}
-                                                className="mt-1 block text-left text-sm font-semibold text-white transition-opacity hover:opacity-80"
-                                              >
-                                                {item.value} {item.suffix}
-                                              </button>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
+                                                    if (event.key === 'Escape') {
+                                                      handleCancelEditing(index, item.field, item.value);
+                                                    }
+                                                  }}
+                                                  className="mt-1 block w-[84px] border-none bg-transparent p-0 text-sm font-semibold text-white outline-none"
+                                                />
+                                              ) : (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleStartEditing(index, item.field, item.value)}
+                                                  className="mt-1 block text-left text-sm font-semibold text-white transition-opacity hover:opacity-80"
+                                                >
+                                                  {item.value} {item.suffix}
+                                                </button>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
                                   </div>
+                                  {isSetComplete && <Check size={20} className="text-green-400" />}
                                 </div>
-                                {isSetComplete && <Check size={20} className="text-green-400" />}
-                              </div>
 
+                              </div>
+                            );
+                            })}
+                          </div>
+
+                          {isLandscapeExerciseLayout && (
+                            <div className="flex min-h-[calc(100vh-10rem)] flex-col gap-4">
+                              <div className="flex flex-1 items-center justify-center">
+                                {renderTimerContent(true)}
+                              </div>
+                              <div className="rounded-[2rem] border border-white/10 bg-slate-900/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl">
+                                {renderActionContent()}
+                              </div>
                             </div>
-                          );
-                          })}
+                          )}
                         </div>
                       </div>
                     )}
@@ -1429,129 +1597,24 @@ function WorkoutScreen({
         </div>
       )}
 
-      <div
-        className={`fixed left-0 right-0 z-10 px-4 transition-all duration-500 ease-out ${timerPanelClass}`}
-        style={{
-          top: `${timerLayout.top}px`,
-          bottom: `${timerLayout.bottom}px`,
-        }}
-      >
-          <div className="max-w-md mx-auto flex h-full items-center justify-center">
-            {showRestTimerPanel ? (
-              <button
-                type="button"
-                onClick={isRestAlarmActive ? onStopRestAlarm : undefined}
-                className={`relative flex items-center justify-center rounded-full overflow-hidden transition-[width,height] duration-500 ease-out ${timerGlow} ${isRestAlarmActive ? 'cursor-pointer animate-pulse' : ''}`}
-                style={{ width: `${timerLayout.size}px`, height: `${timerLayout.size}px` }}
-              >
-                <svg
-                  className="absolute inset-0 h-full w-full -rotate-90 rounded-full"
-                  viewBox="0 0 220 220"
-                >
-                  <circle
-                    cx="110"
-                    cy="110"
-                    r="96"
-                    fill="none"
-                    stroke="rgba(148, 163, 184, 0.14)"
-                    strokeWidth="14"
-                  />
-                  <circle
-                    cx="110"
-                    cy="110"
-                    r="96"
-                    fill="none"
-                    stroke={restContext === 'exercise' ? 'rgba(56, 189, 248, 0.16)' : 'rgba(96, 165, 250, 0.16)'}
-                    strokeWidth="24"
-                  />
-                  <circle
-                    cx="110"
-                    cy="110"
-                    r="96"
-                    fill="none"
-                    stroke={timerStroke}
-                    strokeWidth="16"
-                    strokeLinecap="round"
-                    strokeDasharray={timerCircumference}
-                    strokeDashoffset={timerOffset}
-                    className="transition-all duration-1000 ease-linear"
-                  />
-                </svg>
-                <div
-                  className="flex flex-col items-center justify-center rounded-full border border-white/10 bg-[#071121]/95 px-5 text-center shadow-inner shadow-black/50 transition-[width,height] duration-500 ease-out"
-                  style={{ width: `${timerInnerSize}px`, height: `${timerInnerSize}px` }}
-                >
-                  <span className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${restContext === 'exercise' ? 'text-cyan-300' : 'text-blue-300'}`}>
-                    {isRestAlarmActive ? 'Таймер окончен' : timerLabel}
-                  </span>
-                  <span className="mt-3 text-6xl font-bold text-white tabular-nums">
-                    {formatTimer(restTimer)}
-                  </span>
-                  {isRestAlarmActive && (
-                    <span className="mt-3 text-xs font-medium text-blue-100/80">
-                      Нажми на таймер или кнопку стоп
-                    </span>
-                  )}
-                </div>
-              </button>
-            ) : (
-              <div
-                className="rounded-[2rem] border border-orange-400/20 bg-slate-900/75 px-6 py-5 text-center shadow-2xl shadow-orange-500/10 backdrop-blur-xl transition-[width] duration-500 ease-out"
-                style={{ width: `${Math.min(384, Math.max(280, timerLayout.size + 48))}px` }}
-              >
-                <div className="text-xs font-semibold uppercase tracking-[0.32em] text-orange-300">
-                  Подход
-                </div>
-                <div className="mt-3 text-xl font-semibold text-white">
-                  {currentSetIndex !== null ? `${currentSetIndex + 1}-ый подход` : selectedExercise?.name}
-                </div>
-                <div className="mt-5 text-6xl font-bold text-white tabular-nums">
-                  {formatTimer(exerciseTimer)}
-                </div>
-                <div className="mt-3 text-sm text-orange-100/70">
-                  Прошло с начала подхода
-                </div>
-              </div>
-            )}
+      {showTimerPanel && !isLandscapeExerciseLayout && (
+        <div
+          className={`fixed left-0 right-0 z-10 px-4 transition-all duration-500 ease-out ${timerPanelClass}`}
+          style={{
+            top: `${timerLayout.top}px`,
+            bottom: `${timerLayout.bottom}px`,
+          }}
+        >
+            <div className="max-w-md mx-auto flex h-full items-center justify-center">
+              {renderTimerContent(false)}
+            </div>
           </div>
-        </div>
+      )}
 
-      {(currentAction || showFinishWorkoutButton) && (
+      {(currentAction || showFinishWorkoutButton) && !isLandscapeExerciseLayout && (
         <div ref={actionPanelRef} className="fixed bottom-0 left-0 right-0 z-20 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-[#0B1528] via-[#0B1528] to-transparent">
           <div className="max-w-md mx-auto">
-            {showFinishWorkoutButton ? (
-              <button
-                onClick={onFinishWorkout}
-                className={`${primaryButtonClass} w-full bg-gradient-to-r from-green-500 to-green-600 hover:opacity-90`}
-              >
-                Завершить тренировку
-              </button>
-            ) : isSetActive ? (
-              <div className="flex items-stretch gap-3">
-                <button
-                  onClick={() => selectedExercise && onCancelSet(selectedExercise, currentSetIndex)}
-                  className={`${secondaryButtonClass} w-[28%] min-w-[88px] max-w-[112px] border-red-500/30 bg-red-500/20 px-3 text-red-300 hover:bg-red-500/30`}
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleAction}
-                  className={`${primaryButtonClass} flex-1 bg-gradient-to-r ${currentAction.color} hover:opacity-90`}
-                >
-                  {currentAction.label}
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleAction}
-                className={`${primaryButtonClass} w-full bg-gradient-to-r ${currentAction.color} hover:opacity-90`}
-              >
-                <span className="flex items-center justify-center gap-2">
-                  {currentAction.type === 'stop_alarm' && <Square size={18} />}
-                  {currentAction.label}
-                </span>
-              </button>
-            )}
+            {renderActionContent()}
           </div>
         </div>
       )}
