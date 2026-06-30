@@ -1069,10 +1069,10 @@ function WorkoutScreen({
   const secondaryButtonClass =
     'rounded-2xl border py-4 text-base font-semibold shadow-lg transition-all active:scale-[0.98]';
   const isLandscapeExerciseLayout = Boolean(isLandscape && selectedExercise);
-  const screenContentPaddingClass = isLandscapeExerciseLayout ? 'pb-6' : showTimerPanel ? 'pb-[34rem]' : 'pb-40';
+  const screenContentPaddingClass = isLandscapeExerciseLayout ? 'pb-4' : showTimerPanel ? 'pb-[34rem]' : 'pb-40';
   const selectedExerciseBodyClass = showTimerPanel
     ? isLandscapeExerciseLayout
-      ? 'max-h-[calc(100vh-10rem)]'
+      ? 'h-full min-h-0'
       : 'max-h-[320px]'
     : 'max-h-[calc(100vh-14rem)]';
   const timerPanelClass = showTimerPanel
@@ -1392,8 +1392,8 @@ function WorkoutScreen({
       className="screen-fade-in h-screen overflow-hidden flex flex-col transition-all duration-500"
       style={{ ...swipeBackStyle, touchAction: 'pan-y' }}
     >
-      <div ref={scrollContainerRef} className={`p-4 flex-1 overflow-y-auto ${screenContentPaddingClass}`}>
-        <div className={`mx-auto ${isLandscapeExerciseLayout ? 'w-full max-w-6xl' : 'max-w-md'}`}>
+      <div ref={scrollContainerRef} className={`p-4 flex-1 ${isLandscapeExerciseLayout ? 'overflow-hidden' : 'overflow-y-auto'} ${screenContentPaddingClass}`}>
+        <div className={`mx-auto ${isLandscapeExerciseLayout ? 'flex h-full w-full max-w-6xl flex-col' : 'max-w-md'}`}>
           <div className="content-rise-in flex items-center justify-between mb-6">
             <button
               onClick={onBack}
@@ -1411,7 +1411,7 @@ function WorkoutScreen({
             </div>
           )}
 
-          <div ref={exercisesListRef} className="space-y-4">
+          <div ref={exercisesListRef} className={isLandscapeExerciseLayout ? 'flex-1 min-h-0 space-y-4' : 'space-y-4'}>
             {exercises.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <p className="text-lg">Нет упражнений</p>
@@ -1439,7 +1439,7 @@ function WorkoutScreen({
                         : isSelected
                           ? 'border-orange-500/50'
                           : 'border-white/10 hover:border-white/20'
-                    }`}
+                    } ${isLandscapeExerciseLayout && isSelected ? 'flex h-full min-h-0 flex-col' : ''}`}
                     style={{ animationDelay: `${110 + exerciseIndex * 70}ms` }}
                   >
                     <div
@@ -1483,8 +1483,8 @@ function WorkoutScreen({
                     </div>
 
                     {isSelected && (
-                      <div className="content-rise-in px-4 pb-4 transition-all duration-500" style={{ animationDelay: '120ms' }}>
-                        <div className={isLandscapeExerciseLayout ? 'grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]' : ''}>
+                      <div className={`content-rise-in px-4 pb-4 transition-all duration-500 ${isLandscapeExerciseLayout ? 'flex-1 min-h-0' : ''}`} style={{ animationDelay: '120ms' }}>
+                        <div className={isLandscapeExerciseLayout ? 'grid h-full min-h-0 grid-cols-[minmax(0,1fr)_18rem] items-stretch gap-4' : ''}>
                           <div className={`hide-scrollbar space-y-3 overflow-y-auto pr-1 overscroll-y-contain transition-all duration-500 ${selectedExerciseBodyClass}`}>
                             {exercise.sets.map((set, index) => {
                             const isCurrentSet = currentSetIndex === index;
@@ -1565,7 +1565,7 @@ function WorkoutScreen({
                           </div>
 
                           {isLandscapeExerciseLayout && (
-                            <div className="flex min-h-[calc(100vh-10rem)] flex-col gap-4">
+                            <div className="flex h-full min-h-0 flex-col gap-4">
                               <div className="flex flex-1 items-center justify-center">
                                 {renderTimerContent(true)}
                               </div>
