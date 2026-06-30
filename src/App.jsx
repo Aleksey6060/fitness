@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, ArrowLeft, Trash2, Edit2, Check, RotateCcw, Settings, Activity } from 'lucide-react';
+import { Plus, ArrowLeft, Trash2, Edit2, Check, RotateCcw, Settings, Activity, Square } from 'lucide-react';
 import { db } from './db';
 
 const createEmptySet = (weight = 0, reps = 0) => ({
@@ -38,6 +38,18 @@ function normalizeExercise(exercise) {
   };
 }
 
+function normalizeWorkoutDay(workoutDay) {
+  return {
+    ...workoutDay,
+    name:
+      typeof workoutDay?.name === 'string' && workoutDay.name.trim()
+        ? workoutDay.name.trim()
+        : 'Без названия',
+    exerciseRestTime:
+      Number(workoutDay?.exerciseRestTime) > 0 ? Number(workoutDay.exerciseRestTime) : 180,
+  };
+}
+
 function useSwipeBack(enabled, onBack) {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwipeDragging, setIsSwipeDragging] = useState(false);
@@ -58,7 +70,7 @@ function useSwipeBack(enabled, onBack) {
     }
 
     gestureStateRef.current = {
-      tracking: touch.clientX <= 36,
+      tracking: true,
       startX: touch.clientX,
       startY: touch.clientY,
     };
@@ -86,7 +98,7 @@ function useSwipeBack(enabled, onBack) {
       return;
     }
 
-    if (deltaY > 80 && deltaY > deltaX) {
+    if (deltaY > 72 && deltaY > deltaX) {
       gestureStateRef.current.tracking = false;
       setSwipeOffset(0);
       setIsSwipeDragging(false);
@@ -94,7 +106,7 @@ function useSwipeBack(enabled, onBack) {
     }
 
     setIsSwipeDragging(true);
-    setSwipeOffset(Math.min(deltaX * 0.32, 44));
+    setSwipeOffset(Math.min(deltaX * 0.48, 92));
   };
 
   const handleTouchEnd = (event) => {
@@ -118,7 +130,7 @@ function useSwipeBack(enabled, onBack) {
     gestureStateRef.current.tracking = false;
     setIsSwipeDragging(false);
 
-    if (deltaX > 90 && deltaY < 80 && deltaX > deltaY) {
+    if (deltaX > 72 && deltaY < 88 && deltaX > deltaY) {
       setSwipeOffset(0);
       window.requestAnimationFrame(() => {
         onBack();
@@ -155,17 +167,26 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isSplashLeaving, setIsSplashLeaving] = useState(false);
   const [screen, setScreen] = useState('home');
+  const [activeWorkoutSessionId, setActiveWorkoutSessionId] = useState(null);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [currentSetIndex, setCurrentSetIndex] = useState(null);
   const [completedSetIndex, setCompletedSetIndex] = useState(null);
-  const [setTimer, setSetTimer] = useState(0);
+  const [exerciseTimer, setExerciseTimer] = useState(0);
+  const [activeExerciseId, setActiveExerciseId] = useState(null);
   const [restTimer, setRestTimer] = useState(0);
+  const [restDuration, setRestDuration] = useState(0);
+  const [restContext, setRestContext] = useState(null);
   const [isSetActive, setIsSetActive] = useState(false);
   const [isRestActive, setIsRestActive] = useState(false);
+  const [isRestAlarmActive, setIsRestAlarmActive] = useState(false);
+  const [exerciseRestReady, setExerciseRestReady] = useState(null);
   const [isWorkoutFinishing, setIsWorkoutFinishing] = useState(false);
 
-  const workoutDays = useLiveQuery(() => db.workoutDays.toArray(), []);
+  const workoutDays = useLiveQuery(
+    () => db.workoutDays.toArray().then((items) => items.map(normalizeWorkoutDay)),
+    []
+  );
   const exercises = useLiveQuery(() => {
     if (!selectedWorkout) return [];
     return db.exercises
@@ -189,6 +210,23 @@ function App() {
       window.clearTimeout(hideSplashId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedWorkout || !Array.isArray(workoutDays)) {
+      return;
+    }
+
+    const freshWorkout = workoutDays.find((workout) => workout.id === selectedWorkout.id);
+
+    if (!freshWorkout) {
+      setSelectedWorkout(null);
+      return;
+    }
+
+    if (freshWorkout !== selectedWorkout) {
+      setSelectedWorkout(freshWorkout);
+    }
+  }, [selectedWorkout, workoutDays]);
 
   useEffect(() => {
     if (!selectedExercise || !Array.isArray(exercises)) {
@@ -231,14 +269,20 @@ function App() {
 
       setIsWorkoutFinishing(false);
       setScreen('home');
+      setActiveWorkoutSessionId(null);
       setSelectedWorkout(null);
       setSelectedExercise(null);
       setCurrentSetIndex(null);
       setCompletedSetIndex(null);
       setIsSetActive(false);
       setIsRestActive(false);
-      setSetTimer(0);
+      setExerciseTimer(0);
+      setActiveExerciseId(null);
       setRestTimer(0);
+      setRestDuration(0);
+      setRestContext(null);
+      setIsRestAlarmActive(false);
+      setExerciseRestReady(null);
     }, 1800);
 
     return () => window.clearTimeout(timeoutId);
@@ -253,12 +297,12 @@ function App() {
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
-      oscillator.frequency.value = 800;
+      oscillator.frequency.value = 880;
       oscillator.type = 'sine';
-      gainNode.gain.value = 0.5;
+      gainNode.gain.value = 0.18;
 
       oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.3);
+      oscillator.stop(audioContext.currentTime + 0.6);
     } catch (error) {
       console.error('Error playing beep:', error);
     }
@@ -266,13 +310,13 @@ function App() {
 
   useEffect(() => {
     let interval;
-    if (isSetActive) {
+    if (isSetActive && currentSetIndex !== null && activeExerciseId !== null) {
       interval = setInterval(() => {
-        setSetTimer(t => t + 1);
+        setExerciseTimer(t => t + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isSetActive]);
+  }, [isSetActive, currentSetIndex, activeExerciseId]);
 
   useEffect(() => {
     let interval;
@@ -282,7 +326,7 @@ function App() {
           if (t <= 1) {
             setIsRestActive(false);
             setCompletedSetIndex(null);
-            playBeep();
+            setIsRestAlarmActive(true);
             return 0;
           }
           return t - 1;
@@ -292,14 +336,44 @@ function App() {
     return () => clearInterval(interval);
   }, [isRestActive, restTimer]);
 
-  const addWorkoutDay = async (name) => {
-    await db.workoutDays.add({ name, createdAt: Date.now() });
+  useEffect(() => {
+    if (!isRestAlarmActive) {
+      return;
+    }
+
+    playBeep();
+    const intervalId = window.setInterval(() => {
+      playBeep();
+    }, 1300);
+
+    return () => window.clearInterval(intervalId);
+  }, [isRestAlarmActive]);
+
+  const addWorkoutDay = async (name, exerciseRestTime) => {
+    await db.workoutDays.add({
+      name,
+      createdAt: Date.now(),
+      exerciseRestTime: exerciseRestTime || 180,
+    });
     setScreen('home');
+  };
+
+  const updateWorkoutDayRestTime = async (id, exerciseRestTime) => {
+    await db.workoutDays.update(id, {
+      exerciseRestTime: exerciseRestTime || 180,
+    });
   };
 
   const deleteWorkoutDay = async (id) => {
     await db.workoutDays.delete(id);
     await db.exercises.where('workoutDayId').equals(id).delete();
+
+    if (selectedWorkout?.id === id || activeWorkoutSessionId === id) {
+      setSelectedWorkout(null);
+      setActiveWorkoutSessionId(null);
+      resetWorkoutRuntimeState();
+      setScreen('home');
+    }
   };
 
   const markSetComplete = (exercise, setIndex) => {
@@ -307,14 +381,25 @@ function App() {
     updatedSets[setIndex] = { ...updatedSets[setIndex], completed: true, completedAt: Date.now() };
     updateExercise(exercise.id, exercise.name, updatedSets, exercise.restTime, true);
     setIsSetActive(false);
-    setSetTimer(0);
+    setActiveExerciseId(null);
+    setExerciseTimer(0);
 
     const isLastSet = setIndex === exercise.sets.length - 1;
     const allSetsComplete = updatedSets.every(s => s.completed);
+    const hasMoreExercises = (exercises || []).some(
+      (item) => item.id !== exercise.id && !item.sets.every((set) => set.completed)
+    );
 
     if (isLastSet && allSetsComplete) {
       setCurrentSetIndex(null);
       setSelectedExercise(null);
+      setCompletedSetIndex(null);
+      if (hasMoreExercises) {
+        setExerciseRestReady({
+          exerciseId: exercise.id,
+          exerciseName: exercise.name,
+        });
+      }
     } else {
       setCurrentSetIndex(null);
       setCompletedSetIndex(setIndex);
@@ -323,20 +408,43 @@ function App() {
 
   const cancelSet = (exercise, setIndex) => {
     setIsSetActive(false);
-    setSetTimer(0);
     setCurrentSetIndex(null);
+    setActiveExerciseId(null);
+    setExerciseTimer(0);
   };
 
   const startRestTimerForExercise = (exercise) => {
     const duration = exercise.restTime || 120;
+    setRestContext('set');
+    setRestDuration(duration);
     setRestTimer(duration);
     setIsRestActive(true);
+    setIsRestAlarmActive(false);
+  };
+
+  const startRestTimerBetweenExercises = () => {
+    const duration = selectedWorkout?.exerciseRestTime || 180;
+    setExerciseRestReady(null);
+    setRestContext('exercise');
+    setRestDuration(duration);
+    setRestTimer(duration);
+    setIsRestActive(true);
+    setIsRestAlarmActive(false);
   };
 
   const skipRest = () => {
     setIsRestActive(false);
     setRestTimer(0);
+    setRestDuration(0);
+    setRestContext(null);
     setCompletedSetIndex(null);
+  };
+
+  const stopRestAlarm = () => {
+    setIsRestAlarmActive(false);
+    setRestTimer(0);
+    setRestDuration(0);
+    setRestContext(null);
   };
 
   const resetExercise = (exercise) => {
@@ -382,6 +490,22 @@ function App() {
     await db.exercises.delete(id);
   };
 
+  const resetWorkoutRuntimeState = () => {
+    setSelectedExercise(null);
+    setCurrentSetIndex(null);
+    setCompletedSetIndex(null);
+    setIsSetActive(false);
+    setIsRestActive(false);
+    setExerciseTimer(0);
+    setActiveExerciseId(null);
+    setRestTimer(0);
+    setRestDuration(0);
+    setRestContext(null);
+    setIsRestAlarmActive(false);
+    setExerciseRestReady(null);
+    setIsWorkoutFinishing(false);
+  };
+
   if (showSplash) {
     return <SplashScreen isLeaving={isSplashLeaving} />;
   }
@@ -393,14 +517,13 @@ function App() {
           workoutDays={workoutDays || []}
           onStartWorkout={(workout) => {
             setSelectedWorkout(workout);
-            setSelectedExercise(null);
-            setCurrentSetIndex(null);
-            setCompletedSetIndex(null);
-            setIsSetActive(false);
-            setIsRestActive(false);
-            setSetTimer(0);
-            setRestTimer(0);
-            setIsWorkoutFinishing(false);
+            if (!activeWorkoutSessionId) {
+              setActiveWorkoutSessionId(workout.id);
+              resetWorkoutRuntimeState();
+            } else if (activeWorkoutSessionId !== workout.id) {
+              setActiveWorkoutSessionId(workout.id);
+              resetWorkoutRuntimeState();
+            }
             setScreen('workout');
           }}
           onEditWorkout={(workout) => {
@@ -420,7 +543,14 @@ function App() {
             onSelectExercise={(exercise) => {
               setSelectedExercise(exercise);
               setIsRestActive(false);
+              setIsRestAlarmActive(false);
               setCompletedSetIndex(null);
+              setRestTimer(0);
+              setRestDuration(0);
+              setRestContext(null);
+              if (exercise) {
+                setExerciseRestReady(null);
+              }
             }}
             onBack={() => {
               if (selectedExercise) {
@@ -429,36 +559,45 @@ function App() {
                 setCompletedSetIndex(null);
                 setIsSetActive(false);
                 setIsRestActive(false);
-                setSetTimer(0);
+                setExerciseTimer(0);
+                setActiveExerciseId(null);
                 setRestTimer(0);
+                setRestDuration(0);
+                setRestContext(null);
+                setIsRestAlarmActive(false);
                 return;
               }
 
               setScreen('home');
-              setSelectedWorkout(null);
-              setSelectedExercise(null);
-              setIsSetActive(false);
-              setIsRestActive(false);
-              setSetTimer(0);
-              setRestTimer(0);
-              setCompletedSetIndex(null);
-              setIsWorkoutFinishing(false);
             }}
             onStartSet={(exercise, setIndex) => {
               setSelectedExercise(exercise);
               setCurrentSetIndex(setIndex);
               setIsSetActive(true);
               setIsRestActive(false);
+              setIsRestAlarmActive(false);
               setCompletedSetIndex(null);
+              setRestTimer(0);
+              setRestDuration(0);
+              setRestContext(null);
+              setActiveExerciseId(exercise.id);
+              setExerciseTimer(0);
             }}
             onStartRest={(exercise) => startRestTimerForExercise(exercise)}
+            onStartExerciseRest={startRestTimerBetweenExercises}
             onSkipRest={skipRest}
+            onStopRestAlarm={stopRestAlarm}
             currentSetIndex={currentSetIndex}
             completedSetIndex={completedSetIndex}
             isSetActive={isSetActive}
-            setTimer={setTimer}
+            exerciseTimer={exerciseTimer}
+            activeExerciseId={activeExerciseId}
             restTimer={restTimer}
+            restDuration={restDuration}
             isRestActive={isRestActive}
+            restContext={restContext}
+            isRestAlarmActive={isRestAlarmActive}
+            exerciseRestReady={exerciseRestReady}
             onMarkSetComplete={markSetComplete}
             onCancelSet={cancelSet}
             onResetExercise={resetExercise}
@@ -473,6 +612,8 @@ function App() {
           workout={selectedWorkout}
           exercises={exercises || []}
           onBack={() => setScreen('home')}
+          onUpdateWorkoutRestTime={updateWorkoutDayRestTime}
+          onDeleteWorkout={deleteWorkoutDay}
           onAddExercise={() => setScreen('addExercise')}
           onEditExercise={(exercise) => {
             setSelectedExercise(exercise);
@@ -484,7 +625,7 @@ function App() {
       
       {screen === 'addWorkout' && (
         <AddEditWorkoutScreen
-          onSave={(name) => addWorkoutDay(name)}
+          onSave={(name, exerciseRestTime) => addWorkoutDay(name, exerciseRestTime)}
           onBack={() => setScreen('home')}
         />
       )}
@@ -617,13 +758,20 @@ function WorkoutScreen({
   onBack,
   onStartSet,
   onStartRest,
+  onStartExerciseRest,
   onSkipRest,
+  onStopRestAlarm,
   currentSetIndex,
   completedSetIndex,
   isSetActive,
-  setTimer,
+  exerciseTimer,
+  activeExerciseId,
   restTimer,
+  restDuration,
   isRestActive,
+  restContext,
+  isRestAlarmActive,
+  exerciseRestReady,
   onMarkSetComplete,
   onCancelSet,
   onResetExercise,
@@ -636,20 +784,23 @@ function WorkoutScreen({
   const { handlers: swipeBackHandlers, style: swipeBackStyle } = useSwipeBack(true, onBack);
   const completedExercises = exercises.filter(e => e.sets.every(s => s.completed)).length;
   const allCompleted = completedExercises === exercises.length && exercises.length > 0;
-  const activeRestDuration = selectedExercise?.restTime || 120;
-  const showTimerPanel = isSetActive || isRestActive;
+  const activeRestDuration = restDuration || (restContext === 'exercise' ? workout.exerciseRestTime : selectedExercise?.restTime || 120);
+  const showExerciseTimer = Boolean(
+    isSetActive &&
+    currentSetIndex !== null &&
+    selectedExercise &&
+    activeExerciseId === selectedExercise.id
+  );
+  const showRestTimerPanel = isRestActive || isRestAlarmActive;
+  const showTimerPanel = showExerciseTimer || showRestTimerPanel;
 
   const getCurrentAction = () => {
-    if (!selectedExercise) return null;
-
-    const firstIncompleteIndex = selectedExercise.sets.findIndex(s => !s.completed);
-
-    if (isSetActive && currentSetIndex !== null) {
+    if (isRestAlarmActive) {
       return {
-        type: 'complete_set',
-        label: 'Закончить',
-        color: 'from-green-500 to-green-600',
-        data: { exercise: selectedExercise, index: currentSetIndex }
+        type: 'stop_alarm',
+        label: 'Остановить сигнал',
+        color: 'from-red-500 to-red-600',
+        data: null,
       };
     }
 
@@ -662,21 +813,43 @@ function WorkoutScreen({
       };
     }
 
-    if (completedSetIndex !== null && completedSetIndex !== selectedExercise.sets.length - 1) {
-      return {
-        type: 'start_rest',
-        label: 'Начать отдых',
-        color: 'from-blue-500 to-blue-600',
-        data: { exercise: selectedExercise }
-      };
+    if (selectedExercise) {
+      const firstIncompleteIndex = selectedExercise.sets.findIndex(s => !s.completed);
+
+      if (isSetActive && currentSetIndex !== null) {
+        return {
+          type: 'complete_set',
+          label: 'Закончить',
+          color: 'from-green-500 to-green-600',
+          data: { exercise: selectedExercise, index: currentSetIndex }
+        };
+      }
+
+      if (completedSetIndex !== null && completedSetIndex !== selectedExercise.sets.length - 1) {
+        return {
+          type: 'start_rest',
+          label: 'Начать отдых',
+          color: 'from-blue-500 to-blue-600',
+          data: { exercise: selectedExercise }
+        };
+      }
+
+      if (firstIncompleteIndex !== -1 && completedSetIndex === null) {
+        return {
+          type: 'start_set',
+          label: 'Начать',
+          color: 'from-orange-500 to-orange-600',
+          data: { exercise: selectedExercise, index: firstIncompleteIndex }
+        };
+      }
     }
 
-    if (firstIncompleteIndex !== -1 && completedSetIndex === null) {
+    if (exerciseRestReady && !allCompleted) {
       return {
-        type: 'start_set',
-        label: 'Начать',
-        color: 'from-orange-500 to-orange-600',
-        data: { exercise: selectedExercise, index: firstIncompleteIndex }
+        type: 'start_exercise_rest',
+        label: 'Начать отдых',
+        color: 'from-cyan-500 to-blue-600',
+        data: null,
       };
     }
 
@@ -684,24 +857,20 @@ function WorkoutScreen({
   };
 
   const currentAction = getCurrentAction();
-  const timerLabel = isRestActive ? 'Отдых' : 'Подход';
-  const timerValue = isRestActive ? restTimer : setTimer;
-  const setProgress = Math.max(0, Math.min(setTimer / 60, 1));
-  const timerProgress = isRestActive
-    ? Math.max(0, Math.min((activeRestDuration - restTimer) / activeRestDuration, 1))
-    : setProgress;
+  const timerLabel = restContext === 'exercise' ? 'Между упражнениями' : 'Отдых';
+  const timerProgress = Math.max(0, Math.min((activeRestDuration - restTimer) / activeRestDuration, 1));
   const timerRadius = 96;
   const timerCircumference = 2 * Math.PI * timerRadius;
   const timerOffset = timerCircumference * (1 - timerProgress);
-  const timerStroke = isRestActive ? '#60A5FA' : '#F97316';
-  const timerGlow = isRestActive
-    ? 'shadow-[0_0_45px_rgba(96,165,250,0.28)]'
-    : 'shadow-[0_0_45px_rgba(249,115,22,0.28)]';
+  const timerStroke = restContext === 'exercise' ? '#38BDF8' : '#60A5FA';
+  const timerGlow = restContext === 'exercise'
+    ? 'shadow-[0_0_45px_rgba(56,189,248,0.28)]'
+    : 'shadow-[0_0_45px_rgba(96,165,250,0.28)]';
   const primaryButtonClass =
     'rounded-2xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98]';
   const secondaryButtonClass =
     'rounded-2xl border py-4 text-base font-semibold shadow-lg transition-all active:scale-[0.98]';
-  const screenBottomPaddingClass = showTimerPanel ? 'pb-[34rem]' : 'pb-40';
+  const screenContentPaddingClass = showTimerPanel ? 'pb-[34rem]' : 'pb-40';
   const selectedExerciseBodyClass = showTimerPanel
     ? 'max-h-[320px]'
     : 'max-h-[calc(100vh-14rem)]';
@@ -709,6 +878,7 @@ function WorkoutScreen({
     ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
     : 'pointer-events-none translate-y-8 scale-95 opacity-0';
   const showFinishWorkoutButton = allCompleted && !selectedExercise && !isWorkoutFinishing;
+  const isExerciseSelectionLocked = isRestActive || isRestAlarmActive || Boolean(exerciseRestReady);
 
   useEffect(() => {
     if (!selectedExercise) {
@@ -807,16 +977,22 @@ function WorkoutScreen({
       case 'skip_rest':
         onSkipRest();
         break;
+      case 'start_exercise_rest':
+        onStartExerciseRest();
+        break;
+      case 'stop_alarm':
+        onStopRestAlarm();
+        break;
     }
   };
 
   return (
     <div
       {...swipeBackHandlers}
-      className={`screen-fade-in min-h-screen flex flex-col transition-all duration-500 ${screenBottomPaddingClass}`}
+      className="screen-fade-in h-screen overflow-hidden flex flex-col transition-all duration-500"
       style={{ ...swipeBackStyle, touchAction: 'pan-y' }}
     >
-      <div className="p-4 flex-1">
+      <div className={`p-4 flex-1 overflow-y-auto ${screenContentPaddingClass}`}>
         <div className="max-w-md mx-auto">
           <div className="content-rise-in flex items-center justify-between mb-6">
             <button
@@ -829,9 +1005,9 @@ function WorkoutScreen({
             <div className="w-10"></div>
           </div>
 
-          {allCompleted && (
-            <div className="content-rise-in bg-green-500/20 border border-green-500/30 text-green-300 px-4 py-3 rounded-xl mb-4" style={{ animationDelay: '90ms' }}>
-              🎉 Отличная тренировка! Все упражнения выполнены!
+          {exerciseRestReady && !selectedExercise && !isRestActive && !isRestAlarmActive && (
+            <div className="content-rise-in mb-4 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-cyan-200" style={{ animationDelay: '95ms' }}>
+              Для дальнейшей тренеровки нужно отдохнуть.
             </div>
           )}
 
@@ -865,8 +1041,14 @@ function WorkoutScreen({
                       <div className="flex items-center gap-3">
                         {allSetsCompleted && <Check size={24} className="text-green-400" />}
                         <button
-                          onClick={() => onSelectExercise(isSelected ? null : exercise)}
-                          className="text-left"
+                          onClick={() => {
+                            if (isExerciseSelectionLocked) {
+                              return;
+                            }
+
+                            onSelectExercise(isSelected ? null : exercise);
+                          }}
+                          className={`text-left ${isExerciseSelectionLocked ? 'cursor-not-allowed opacity-60' : ''}`}
                         >
                           <h2 className="text-xl font-semibold text-white">{exercise.name}</h2>
                           <p className="text-sm text-gray-400">
@@ -989,51 +1171,75 @@ function WorkoutScreen({
 
       <div className={`fixed bottom-[calc(6.9rem+env(safe-area-inset-bottom))] left-0 right-0 z-10 px-4 transition-all duration-500 ease-out ${timerPanelClass}`}>
           <div className="max-w-md mx-auto flex justify-center">
-            <div className={`relative flex h-72 w-72 items-center justify-center rounded-full overflow-hidden ${timerGlow}`}>
-              <svg
-                className={`absolute inset-0 h-full w-full -rotate-90 rounded-full ${isSetActive ? 'animate-pulse' : ''}`}
-                viewBox="0 0 220 220"
+            {showRestTimerPanel ? (
+              <button
+                type="button"
+                onClick={isRestAlarmActive ? onStopRestAlarm : undefined}
+                className={`relative flex h-72 w-72 items-center justify-center rounded-full overflow-hidden ${timerGlow} ${isRestAlarmActive ? 'cursor-pointer animate-pulse' : ''}`}
               >
-                <circle
-                  cx="110"
-                  cy="110"
-                  r="96"
-                  fill="none"
-                  stroke="rgba(148, 163, 184, 0.14)"
-                  strokeWidth="14"
-                />
-                {isRestActive && (
+                <svg
+                  className="absolute inset-0 h-full w-full -rotate-90 rounded-full"
+                  viewBox="0 0 220 220"
+                >
                   <circle
                     cx="110"
                     cy="110"
                     r="96"
                     fill="none"
-                    stroke="rgba(96, 165, 250, 0.16)"
+                    stroke="rgba(148, 163, 184, 0.14)"
+                    strokeWidth="14"
+                  />
+                  <circle
+                    cx="110"
+                    cy="110"
+                    r="96"
+                    fill="none"
+                    stroke={restContext === 'exercise' ? 'rgba(56, 189, 248, 0.16)' : 'rgba(96, 165, 250, 0.16)'}
                     strokeWidth="24"
                   />
-                )}
-                <circle
-                  cx="110"
-                  cy="110"
-                  r="96"
-                  fill="none"
-                  stroke={timerStroke}
-                  strokeWidth={isRestActive ? '16' : '14'}
-                  strokeLinecap="round"
-                  strokeDasharray={timerCircumference}
-                  strokeDashoffset={timerOffset}
-                  className="transition-all duration-1000 ease-linear"
-                />
-              </svg>
-              <div className="flex h-44 w-44 flex-col items-center justify-center rounded-full border border-white/10 bg-[#071121]/95 shadow-inner shadow-black/50">
-                <span className={`text-base font-semibold tracking-[0.2em] ${isRestActive ? 'text-blue-300' : 'text-orange-300'}`}>
-                  {timerLabel}
-                </span>
-                <span className="mt-2 text-6xl font-bold text-white tabular-nums">
-                  {formatTimer(timerValue)}
-                </span>
+                  <circle
+                    cx="110"
+                    cy="110"
+                    r="96"
+                    fill="none"
+                    stroke={timerStroke}
+                    strokeWidth="16"
+                    strokeLinecap="round"
+                    strokeDasharray={timerCircumference}
+                    strokeDashoffset={timerOffset}
+                    className="transition-all duration-1000 ease-linear"
+                  />
+                </svg>
+                <div className="flex h-44 w-44 flex-col items-center justify-center rounded-full border border-white/10 bg-[#071121]/95 px-5 text-center shadow-inner shadow-black/50">
+                  <span className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${restContext === 'exercise' ? 'text-cyan-300' : 'text-blue-300'}`}>
+                    {isRestAlarmActive ? 'Таймер окончен' : timerLabel}
+                  </span>
+                  <span className="mt-3 text-6xl font-bold text-white tabular-nums">
+                    {formatTimer(restTimer)}
+                  </span>
+                  {isRestAlarmActive && (
+                    <span className="mt-3 text-xs font-medium text-blue-100/80">
+                      Нажми на таймер или кнопку стоп
+                    </span>
+                  )}
+                </div>
+              </button>
+            ) : (
+              <div className="w-full max-w-sm rounded-[2rem] border border-orange-400/20 bg-slate-900/75 px-6 py-5 text-center shadow-2xl shadow-orange-500/10 backdrop-blur-xl">
+                <div className="text-xs font-semibold uppercase tracking-[0.32em] text-orange-300">
+                  Подход
+                </div>
+                <div className="mt-3 text-xl font-semibold text-white">
+                  {currentSetIndex !== null ? `${currentSetIndex + 1}-ый подход` : selectedExercise?.name}
+                </div>
+                <div className="mt-5 text-6xl font-bold text-white tabular-nums">
+                  {formatTimer(exerciseTimer)}
+                </div>
+                <div className="mt-3 text-sm text-orange-100/70">
+                  Прошло с начала подхода
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -1067,7 +1273,10 @@ function WorkoutScreen({
                 onClick={handleAction}
                 className={`${primaryButtonClass} w-full bg-gradient-to-r ${currentAction.color} hover:opacity-90`}
               >
-                {currentAction.label}
+                <span className="flex items-center justify-center gap-2">
+                  {currentAction.type === 'stop_alarm' && <Square size={18} />}
+                  {currentAction.label}
+                </span>
               </button>
             )}
           </div>
@@ -1081,11 +1290,25 @@ function EditWorkoutScreen({
   workout,
   exercises,
   onBack,
+  onUpdateWorkoutRestTime,
+  onDeleteWorkout,
   onAddExercise,
   onEditExercise,
   onDeleteExercise,
 }) {
   const { handlers: swipeBackHandlers, style: swipeBackStyle } = useSwipeBack(true, onBack);
+  const [exerciseRestTimeInput, setExerciseRestTimeInput] = useState(String(workout.exerciseRestTime || 180));
+
+  useEffect(() => {
+    setExerciseRestTimeInput(String(workout.exerciseRestTime || 180));
+  }, [workout]);
+
+  const handleWorkoutRestBlur = async () => {
+    const parsedValue = Number(exerciseRestTimeInput);
+    const normalizedValue = Math.max(10, Math.min(900, Number.isNaN(parsedValue) ? workout.exerciseRestTime || 180 : parsedValue));
+    setExerciseRestTimeInput(String(normalizedValue));
+    await onUpdateWorkoutRestTime(workout.id, normalizedValue);
+  };
 
   return (
     <div
@@ -1110,6 +1333,33 @@ function EditWorkoutScreen({
       </div>
 
       <div className="space-y-4">
+        <div className="content-rise-in bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-4" style={{ animationDelay: '90ms' }}>
+          <label className="block text-sm font-semibold text-gray-300 mb-2">
+            Отдых между упражнениями (секунд)
+          </label>
+          <input
+            type="number"
+            value={exerciseRestTimeInput}
+            onChange={(event) => setExerciseRestTimeInput(event.target.value)}
+            onBlur={handleWorkoutRestBlur}
+            min="10"
+            max="900"
+            className="w-full px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
+          />
+        </div>
+
+        <button
+          onClick={() => {
+            if (confirm(`Удалить день "${workout.name}" целиком?`)) {
+              onDeleteWorkout(workout.id);
+            }
+          }}
+          className="content-rise-in w-full rounded-2xl border border-red-500/30 bg-red-500/15 py-3 text-base font-semibold text-red-300 transition-all hover:bg-red-500/25 active:scale-[0.98]"
+          style={{ animationDelay: '100ms' }}
+        >
+          Удалить день
+        </button>
+
         {exercises.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <p className="text-lg">Нет упражнений</p>
@@ -1156,6 +1406,7 @@ function EditWorkoutScreen({
 
 function AddEditWorkoutScreen({ isEdit, onSave, onBack }) {
   const [name, setName] = useState('');
+  const [exerciseRestTime, setExerciseRestTime] = useState(180);
   const { handlers: swipeBackHandlers, style: swipeBackStyle } = useSwipeBack(true, onBack);
 
   return (
@@ -1190,10 +1441,24 @@ function AddEditWorkoutScreen({ isEdit, onSave, onBack }) {
             />
           </div>
 
+          <div className="content-rise-in overflow-hidden rounded-2xl bg-slate-900/60 p-4 ring-1 ring-inset ring-white/10 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" style={{ animationDelay: '150ms' }}>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">
+              Отдых между упражнениями (секунд)
+            </label>
+            <input
+              type="number"
+              value={exerciseRestTime}
+              onChange={(e) => setExerciseRestTime(Number(e.target.value))}
+              min="10"
+              max="900"
+              className="w-full px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
+            />
+          </div>
+
           <button
             onClick={() => {
               if (name.trim()) {
-                onSave(name.trim());
+                onSave(name.trim(), Math.max(10, Math.min(900, Number(exerciseRestTime) || 180)));
               }
             }}
             disabled={!name.trim()}
