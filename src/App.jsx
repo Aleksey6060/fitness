@@ -913,7 +913,7 @@ function ActiveTimerNotch({ timerKind, seconds, workoutName, exerciseName, scope
     <button
       type="button"
       onClick={onOpen}
-      className={`fixed left-1/2 z-40 flex w-[min(92vw,25rem)] -translate-x-1/2 items-center gap-3 rounded-t-[1.65rem] border px-4 py-3 text-left backdrop-blur-xl shadow-2xl transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] ${accentClass}`}
+      className={`fixed left-1/2 z-40 flex w-[min(92vw,25rem)] -translate-x-1/2 items-center gap-3 rounded-[1.65rem] border px-4 py-3 text-left backdrop-blur-xl shadow-2xl transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] ${accentClass}`}
       style={{
         bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)',
         transform: 'translate3d(-50%, 0, 0)',
@@ -1287,19 +1287,19 @@ function WorkoutScreen({
                     }`}
                     style={{ animationDelay: `${110 + exerciseIndex * 70}ms` }}
                   >
-                    <div className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {allSetsCompleted && <Check size={24} className="text-green-400" />}
-                        <button
-                          onClick={() => {
-                            if (!canOpenExercise) {
-                              return;
-                            }
+                    <div
+                      className={`p-4 flex items-center justify-between gap-3 ${canOpenExercise ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                      onClick={() => {
+                        if (!canOpenExercise) {
+                          return;
+                        }
 
-                            onSelectExercise(isSelected ? null : exercise);
-                          }}
-                          className={`text-left ${canOpenExercise ? '' : 'cursor-not-allowed opacity-60'}`}
-                        >
+                        onSelectExercise(isSelected ? null : exercise);
+                      }}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {allSetsCompleted && <Check size={24} className="text-green-400" />}
+                        <div className={`text-left flex-1 min-w-0 ${canOpenExercise ? '' : 'opacity-60'}`}>
                           <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-xl font-semibold text-white">{exercise.name}</h2>
                             {isActiveExercise && (
@@ -1311,11 +1311,14 @@ function WorkoutScreen({
                           <p className="text-sm text-gray-400">
                             {exercise.sets.filter(s => s.completed).length}/{exercise.sets.length} подходов
                           </p>
-                        </button>
+                        </div>
                       </div>
                       {allSetsCompleted && (
                         <button
-                          onClick={() => onResetExercise(exercise)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onResetExercise(exercise);
+                          }}
                           className="text-orange-400 hover:text-orange-300 p-2 transition-colors"
                           title="Сбросить прогресс"
                         >
